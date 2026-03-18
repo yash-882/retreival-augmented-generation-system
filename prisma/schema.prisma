@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  output   = "generated/prisma"
 }
 
 datasource db {
@@ -9,7 +9,6 @@ datasource db {
 
 model pdf {
   id         String      @id @default(uuid()) @db.Uuid
-  label      String      @db.VarChar(50)
   file_name  String      @db.VarChar(100)
   created_at DateTime    @default(now())
   pdf_chunks pdf_chunk[]

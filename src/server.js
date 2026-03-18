@@ -2,7 +2,7 @@
 import "../loadEnvVars.js";
 
 import app from "./app.js";
-import { PrismaClient } from '../generated/prisma/client.ts';
+import { PrismaClient } from '../prisma/generated/prisma/client.ts';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 // prisma DB config (postgresql)
