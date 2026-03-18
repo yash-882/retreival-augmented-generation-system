@@ -20,6 +20,7 @@ model pdf_chunk {
   pdf_id      String   @db.Uuid
   pdf         pdf      @relation(fields: [pdf_id], references: [id], onDelete: Cascade)
   chunk_text  String
+  chunk_index Int
   embedding   Unsupported("vector(3072)")
 
   @@index([pdf_id])
