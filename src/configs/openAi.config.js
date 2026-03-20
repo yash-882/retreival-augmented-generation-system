@@ -1,0 +1,7 @@
+import {OpenAI} from "openai/client.js";
+
+// openai config
+export const openai = new OpenAI({
+    apiKey: process.env.GROQ_API_KEY,
+    baseURL: "https://api.groq.com/openai/v1"
+})

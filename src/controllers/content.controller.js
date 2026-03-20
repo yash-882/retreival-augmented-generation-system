@@ -1,8 +1,10 @@
+import { __wbg_String_8f0eb39a4a4c2f66 } from "@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs";
 import { Prisma } from "../../prisma/generated/prisma/client.ts";
 import { prismaClient } from "../server.js"
-import { getEmbeddings } from "../utils/services/ai.service.js";
+import { getAnswersByAi, getEmbeddings } from "../utils/services/ai.service.js";
 import { cleanPdfText, getPdfChunks, validatePdfResult } from "../utils/services/pdf.service.js";
 import { extractText } from "unpdf";
+import opError from "../utils/classes/opError.class.js";
 
 export const uploadFile = async (req, res, next) => {
     const file = req.file;
@@ -23,6 +25,10 @@ export const uploadFile = async (req, res, next) => {
 
   // get embeddings from AI 
   const embeddings = await getEmbeddings(chunks)
+
+  if(embeddings.length === 0 || embeddings[0].values.length === 0)
+    return next(new Error("Could not generate embeddings for the provided question."))
+  
 
   let pdf;
 
@@ -64,4 +70,42 @@ export const uploadFile = async (req, res, next) => {
           pdf: pdf,
         }
     })
+}
+
+export const getAnswers = async (req, res, next) => {
+  const { question } = req.body || {};
+  
+  const embeddingsDetails = await getEmbeddings([question]);
+
+  if(embeddingsDetails.length === 0 || embeddingsDetails[0].values.length === 0)
+    return next(new Error('Could not generate embeddings for the provided question.'))
+
+
+  // search vector database
+  const results = await prismaClient.$queryRaw(
+    Prisma.sql`
+    SELECT chunk_text, 1 - (embedding <=> ${JSON.stringify(embeddingsDetails[0].values)}::vector) AS similarity
+    FROM pdf_chunk
+    ORDER BY similarity DESC
+    LIMIT 5
+    `
+  );
+
+  if(results.length === 0 || parseFloat(results[0].similarity) < 0.5){
+    return next(new opError('No relevant information found for the provided question.', 404))
+  }
+
+
+  const context = results.map(r => r.chunk_text).join("\n\n");
+
+  const answer = await getAnswersByAi(`Context: ${context}\n\nQuestion: ${question}`);
+
+
+  res.json({
+    data: {
+      answer,
+      sources: results
+    }
+  });
+  
 }
