@@ -20,7 +20,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.4.2",
   "engineVersion": "94a226be1cf2967af2541cca5529f0f7ba866919",
   "activeProvider": "postgresql",
-  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel pdf {\n  id         String      @id @default(uuid()) @db.Uuid\n  file_name  String      @db.VarChar(100)\n  created_at DateTime    @default(now())\n  pdf_chunks pdf_chunk[]\n}\n\nmodel pdf_chunk {\n  id          String                      @id @default(uuid()) @db.Uuid\n  pdf_id      String                      @db.Uuid\n  pdf         pdf                         @relation(fields: [pdf_id], references: [id], onDelete: Cascade)\n  chunk_text  String\n  chunk_index Int\n  embedding   Unsupported(\"vector(3072)\")\n\n  @@index([pdf_id])\n}\n",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel pdf {\n  id         String      @id @default(uuid()) @db.Uuid\n  file_name  String      @db.VarChar(100)\n  created_at DateTime    @default(now())\n  pdf_chunks pdf_chunk[]\n}\n\nmodel pdf_chunk {\n  id          String                     @id @default(uuid()) @db.Uuid\n  pdf_id      String                     @db.Uuid\n  pdf         pdf                        @relation(fields: [pdf_id], references: [id], onDelete: Cascade)\n  chunk_text  String\n  chunk_index Int\n  embedding   Unsupported(\"vector(768)\") //embedding index applied with migration files\n\n  @@index([pdf_id])\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},

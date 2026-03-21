@@ -20,7 +20,7 @@ model pdf_chunk {
   pdf         pdf      @relation(fields: [pdf_id], references: [id], onDelete: Cascade)
   chunk_text  String
   chunk_index Int
-  embedding   Unsupported("vector(3072)")
+  embedding   Unsupported("vector(768)") //embedding index applied with migration files
 
   @@index([pdf_id])
 }
