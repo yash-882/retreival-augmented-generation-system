@@ -7,6 +7,9 @@ export const getEmbeddings = async (textArr) => {
     const response = await googleGenAI.models.embedContent({
         model: 'gemini-embedding-001',
         contents: textArr,
+        config: {
+            outputDimensionality: 768  // to get arr of 768 vectors[]
+        }
     });
 
     // model fails to generate embeddings
