@@ -20,7 +20,7 @@ export const getEmbeddings = async (textArr) => {
 }
 
 // generate text-based answers
-export const getAnswersByAi = async (question) => {
+export const getAnswersByAi = async ({context, question}) => {
     // GENERATE ANSWER USING LLM
     const response = await openai.chat.completions.create({
         model: "openai/gpt-oss-20b",
@@ -28,12 +28,18 @@ export const getAnswersByAi = async (question) => {
             {
                 role: "system",
                 content: `
-You are an assistant that answers questions strictly based on the provided context.
+You are an assistant answering a user's question using information derived from provided context.
+Context:
+${context}
 
 Rules:
-- Use only the given context to answer.
+- Respond naturally and directly to the user.
+- Use the context as the source of truth for factual information.
+- Do not introduce facts not supported by the context.
+- Do not mention the context or say phrases like "based on the provided context/information".
+- If the answer cannot be determined from the context, say so clearly.
+- For advice or opinion questions, provide general guidance without making unsupported or specific claims.
 - Be concise and clear.
-- Do not add assumptions or external knowledge.
 `
             },
             {
