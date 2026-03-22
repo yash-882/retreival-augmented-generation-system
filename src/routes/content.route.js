@@ -12,6 +12,8 @@ router.post('/upload-file', multerUploader({
 }).single('file'), checkRequiredFields(['file'], true), uploadFile)
 
 // get answers of uploaded contents
-router.post('/get-answers', checkRequiredFields(['question']), getAnswers)
+router.post('/get-answers', checkRequiredFields([
+    { name: 'question', type: 'string' }
+]), getAnswers)
 
 export default router;

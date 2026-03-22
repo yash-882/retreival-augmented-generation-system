@@ -94,7 +94,11 @@ export const getAnswers = async (req, res, next) => {
   );
 
   if(results.length === 0 || parseFloat(results[0].similarity) < 0.5){
-    return next(new opError('No relevant information found for the provided question.', 404))
+    return res.json({
+      data: {
+        answer: "No relevant information found across your uploaded documents."
+      }
+    })
   }
 
   // clean context
