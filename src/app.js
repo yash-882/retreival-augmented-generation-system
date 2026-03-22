@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api', contentRouter)
+app.use('/api/content', contentRouter)
 app.use(GlobalErrorHandler)
 
 export default app;
