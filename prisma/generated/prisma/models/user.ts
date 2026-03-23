@@ -182,6 +182,7 @@ export type userWhereInput = {
   password?: Prisma.StringFilter<"user"> | string
   name?: Prisma.StringFilter<"user"> | string
   created_at?: Prisma.DateTimeFilter<"user"> | Date | string
+  pdfs?: Prisma.PdfListRelationFilter
 }
 
 export type userOrderByWithRelationInput = {
@@ -190,6 +191,7 @@ export type userOrderByWithRelationInput = {
   password?: Prisma.SortOrder
   name?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
+  pdfs?: Prisma.pdfOrderByRelationAggregateInput
 }
 
 export type userWhereUniqueInput = Prisma.AtLeast<{
@@ -201,6 +203,7 @@ export type userWhereUniqueInput = Prisma.AtLeast<{
   password?: Prisma.StringFilter<"user"> | string
   name?: Prisma.StringFilter<"user"> | string
   created_at?: Prisma.DateTimeFilter<"user"> | Date | string
+  pdfs?: Prisma.PdfListRelationFilter
 }, "id" | "email">
 
 export type userOrderByWithAggregationInput = {
@@ -231,6 +234,7 @@ export type userCreateInput = {
   password: string
   name?: string
   created_at?: Date | string
+  pdfs?: Prisma.pdfCreateNestedManyWithoutUserInput
 }
 
 export type userUncheckedCreateInput = {
@@ -239,6 +243,7 @@ export type userUncheckedCreateInput = {
   password: string
   name?: string
   created_at?: Date | string
+  pdfs?: Prisma.pdfUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type userUpdateInput = {
@@ -247,6 +252,7 @@ export type userUpdateInput = {
   password?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pdfs?: Prisma.pdfUpdateManyWithoutUserNestedInput
 }
 
 export type userUncheckedUpdateInput = {
@@ -255,6 +261,7 @@ export type userUncheckedUpdateInput = {
   password?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  pdfs?: Prisma.pdfUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type userCreateManyInput = {
@@ -281,6 +288,11 @@ export type userUncheckedUpdateManyInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type UserScalarRelationFilter = {
+  is?: Prisma.userWhereInput
+  isNot?: Prisma.userWhereInput
+}
+
 export type userCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -305,6 +317,97 @@ export type userMinOrderByAggregateInput = {
   created_at?: Prisma.SortOrder
 }
 
+export type userCreateNestedOneWithoutPdfsInput = {
+  create?: Prisma.XOR<Prisma.userCreateWithoutPdfsInput, Prisma.userUncheckedCreateWithoutPdfsInput>
+  connectOrCreate?: Prisma.userCreateOrConnectWithoutPdfsInput
+  connect?: Prisma.userWhereUniqueInput
+}
+
+export type userUpdateOneRequiredWithoutPdfsNestedInput = {
+  create?: Prisma.XOR<Prisma.userCreateWithoutPdfsInput, Prisma.userUncheckedCreateWithoutPdfsInput>
+  connectOrCreate?: Prisma.userCreateOrConnectWithoutPdfsInput
+  upsert?: Prisma.userUpsertWithoutPdfsInput
+  connect?: Prisma.userWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.userUpdateToOneWithWhereWithoutPdfsInput, Prisma.userUpdateWithoutPdfsInput>, Prisma.userUncheckedUpdateWithoutPdfsInput>
+}
+
+export type userCreateWithoutPdfsInput = {
+  id?: string
+  email: string
+  password: string
+  name?: string
+  created_at?: Date | string
+}
+
+export type userUncheckedCreateWithoutPdfsInput = {
+  id?: string
+  email: string
+  password: string
+  name?: string
+  created_at?: Date | string
+}
+
+export type userCreateOrConnectWithoutPdfsInput = {
+  where: Prisma.userWhereUniqueInput
+  create: Prisma.XOR<Prisma.userCreateWithoutPdfsInput, Prisma.userUncheckedCreateWithoutPdfsInput>
+}
+
+export type userUpsertWithoutPdfsInput = {
+  update: Prisma.XOR<Prisma.userUpdateWithoutPdfsInput, Prisma.userUncheckedUpdateWithoutPdfsInput>
+  create: Prisma.XOR<Prisma.userCreateWithoutPdfsInput, Prisma.userUncheckedCreateWithoutPdfsInput>
+  where?: Prisma.userWhereInput
+}
+
+export type userUpdateToOneWithWhereWithoutPdfsInput = {
+  where?: Prisma.userWhereInput
+  data: Prisma.XOR<Prisma.userUpdateWithoutPdfsInput, Prisma.userUncheckedUpdateWithoutPdfsInput>
+}
+
+export type userUpdateWithoutPdfsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type userUncheckedUpdateWithoutPdfsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+
+/**
+ * Count Type UserCountOutputType
+ */
+
+export type UserCountOutputType = {
+  pdfs: number
+}
+
+export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  pdfs?: boolean | UserCountOutputTypeCountPdfsArgs
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the UserCountOutputType
+   */
+  select?: Prisma.UserCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountPdfsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.pdfWhereInput
+}
 
 
 export type userSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -313,6 +416,8 @@ export type userSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   password?: boolean
   name?: boolean
   created_at?: boolean
+  pdfs?: boolean | Prisma.user$pdfsArgs<ExtArgs>
+  _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
 export type userSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -340,10 +445,18 @@ export type userSelectScalar = {
 }
 
 export type userOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "password" | "name" | "created_at", ExtArgs["result"]["user"]>
+export type userInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  pdfs?: boolean | Prisma.user$pdfsArgs<ExtArgs>
+  _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
+}
+export type userIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type userIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
 
 export type $userPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "user"
-  objects: {}
+  objects: {
+    pdfs: Prisma.$pdfPayload<ExtArgs>[]
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     email: string
@@ -744,6 +857,7 @@ readonly fields: userFieldRefs;
  */
 export interface Prisma__userClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  pdfs<T extends Prisma.user$pdfsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.user$pdfsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$pdfPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -795,6 +909,10 @@ export type userFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.Internal
    */
   omit?: Prisma.userOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  /**
    * Filter, which user to fetch.
    */
   where: Prisma.userWhereUniqueInput
@@ -813,6 +931,10 @@ export type userFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extensions.I
    */
   omit?: Prisma.userOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  /**
    * Filter, which user to fetch.
    */
   where: Prisma.userWhereUniqueInput
@@ -830,6 +952,10 @@ export type userFindFirstArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * Omit specific fields from the user
    */
   omit?: Prisma.userOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
   /**
    * Filter, which user to fetch.
    */
@@ -879,6 +1005,10 @@ export type userFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensions.In
    */
   omit?: Prisma.userOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  /**
    * Filter, which user to fetch.
    */
   where?: Prisma.userWhereInput
@@ -927,6 +1057,10 @@ export type userFindManyArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
    */
   omit?: Prisma.userOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  /**
    * Filter, which users to fetch.
    */
   where?: Prisma.userWhereInput
@@ -969,6 +1103,10 @@ export type userCreateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
    * Omit specific fields from the user
    */
   omit?: Prisma.userOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
   /**
    * The data needed to create a user.
    */
@@ -1017,6 +1155,10 @@ export type userUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
    * Omit specific fields from the user
    */
   omit?: Prisma.userOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
   /**
    * The data needed to update a user.
    */
@@ -1084,6 +1226,10 @@ export type userUpsertArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
    */
   omit?: Prisma.userOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  /**
    * The filter to search for the user to update in case it exists.
    */
   where: Prisma.userWhereUniqueInput
@@ -1110,6 +1256,10 @@ export type userDeleteArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
    */
   omit?: Prisma.userOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
+  /**
    * Filter which user to delete.
    */
   where: Prisma.userWhereUniqueInput
@@ -1130,6 +1280,30 @@ export type userDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
 }
 
 /**
+ * user.pdfs
+ */
+export type user$pdfsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the pdf
+   */
+  select?: Prisma.pdfSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the pdf
+   */
+  omit?: Prisma.pdfOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.pdfInclude<ExtArgs> | null
+  where?: Prisma.pdfWhereInput
+  orderBy?: Prisma.pdfOrderByWithRelationInput | Prisma.pdfOrderByWithRelationInput[]
+  cursor?: Prisma.pdfWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PdfScalarFieldEnum | Prisma.PdfScalarFieldEnum[]
+}
+
+/**
  * user without action
  */
 export type userDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1141,4 +1315,8 @@ export type userDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
    * Omit specific fields from the user
    */
   omit?: Prisma.userOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userInclude<ExtArgs> | null
 }

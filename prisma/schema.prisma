@@ -12,6 +12,10 @@ model pdf {
   file_name  String      @db.VarChar(100)
   created_at DateTime    @default(now())
   pdf_chunks pdf_chunk[]
+  user_id    String      @db.Uuid
+  user       user        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
 }
 
 model pdf_chunk {
@@ -31,4 +35,5 @@ model user {
   password   String   @db.VarChar(70)
   name       String  @db.VarChar(50) @default("default_name")
   created_at DateTime @default(now())
+  pdfs       pdf[]
 }

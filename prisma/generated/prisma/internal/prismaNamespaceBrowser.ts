@@ -75,7 +75,8 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const PdfScalarFieldEnum = {
   id: 'id',
   file_name: 'file_name',
-  created_at: 'created_at'
+  created_at: 'created_at',
+  user_id: 'user_id'
 } as const
 
 export type PdfScalarFieldEnum = (typeof PdfScalarFieldEnum)[keyof typeof PdfScalarFieldEnum]
