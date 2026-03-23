@@ -1,8 +1,13 @@
 import express from 'express';
-import { completeUserSignUp, initUserSignUp } from '../controllers/auth.controller.js';
-import { checkRequiredFields } from '../middlewares/checkRequiFields.middleware.js';
-import { lowerCaseEmail, validateSignUpFields } from '../middlewares/auth.middleware.js';
 import { checkRedisStatus } from '../middlewares/serviceCheck.middleware.js';
+import { checkRequiredFields } from '../middlewares/checkRequiFields.middleware.js';
+import { 
+    completeUserSignUp, 
+    initUserSignUp, login } from '../controllers/auth.controller.js';
+import { 
+    lowerCaseEmail, 
+    validateLoginFields, 
+    validateSignUpFields } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
@@ -27,6 +32,17 @@ router.post('/sign-up/complete',
     ]), 
     lowerCaseEmail, 
     completeUserSignUp
+);
+
+// Route to login user
+router.post('/login',
+    checkRequiredFields([
+        { name: 'email', type: 'string' },
+        { name: 'password', type: 'string' }
+    ]),
+    lowerCaseEmail,
+    validateLoginFields,
+    login
 );
 
 export default router;

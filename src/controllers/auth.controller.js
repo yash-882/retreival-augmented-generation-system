@@ -1,13 +1,22 @@
 import { prismaClient as prisma } from '../server.js';
 import opError from '../utils/classes/opError.class.js';
 import sendEmail from '../utils/services/email.service.js';
-import { compareBcryptHash, generateBcryptHash, generateRandomInt, limitOTPActions } from '../utils/services/auth.service.js';
+import { 
+  compareBcryptHash, 
+  generateBcryptHash, 
+  generateRandomInt, 
+  limitOTPActions } from '../utils/services/auth.service.js';
 import RedisService from '../utils/services/classes/redis.service.js';
+import { findUserByFilter } from '../utils/services/user.service.js';
+import { generateTokens } from '../utils/services/token.service.js';
 
 // create user
 export const initUserSignUp = async (req, res, next) => {
 
   const { name, email, password } = req.body;
+
+  // check if user already exists with the same email, throws err
+  await findUserByFilter({email}, 'Email is already registered with us.', false, true)
 
   // generate 6 digits OTP
   const digits = 6;
@@ -51,6 +60,9 @@ export const completeUserSignUp = async (req, res, next) => {
 
   const redis = new RedisService(email, 'SIGN_UP_OTP');
 
+  // check if user already exists with the same email
+  await findUserByFilter({email}, 'Email is already registered with us.', false, true)
+
   const data = await redis.getData();
 
   if (!data) {
@@ -93,6 +105,45 @@ export const completeUserSignUp = async (req, res, next) => {
     message: 'User created successfully.',
     data: {
       user: newUser
+    }
+  });
+}
+
+// login user
+export const login = async (req, res, next) => {
+  const { email, password } = req.body;
+
+    // check if no user exists with the provided email, throws error
+  const user = await findUserByFilter({email}, 'Email is not registered with us.', true, true)
+
+  // compare password
+  await compareBcryptHash(password, user.password, true, 'Incorrect password.');
+
+  // get tokens
+  const { accessToken, refreshToken } = generateTokens({id: user.id, name: user.name})
+
+  res.cookie('AT', accessToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30days
+  });
+
+  res.cookie('RT', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30days
+  });
+  
+  // remove password from the response
+  user.password = undefined;
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Login successful.',
+    data: {
+      user
     }
   });
 }
