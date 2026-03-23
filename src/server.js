@@ -7,6 +7,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import redisClient from "./configs/redis.config.js";
 
 let isRedisAlive = true;
+const PORT = process.env.PORT || 3000;
+
 // listens for redis error event
 redisClient.on('error', (err) => {
     console.log('Redis Client Error', err);
@@ -31,7 +33,6 @@ async function startServer() {
         const redisConn = await redisClient.connect(); // connect to Redis
         console.log('Connected to Redis');
 
-        const PORT = process.env.PORT || 3000;
         app.listen(PORT, () => console.log(`Listening to PORT: ${PORT}`));
 
         return { redisClient: redisConn };
@@ -44,15 +45,15 @@ async function startServer() {
         
         if(REDIS_DOWN_ERRORS.includes(err.code)){
             isRedisAlive = false
+            app.listen(PORT, () => console.log(`Listening to PORT: ${PORT} (Redis Down)`));
         }
-        
+
         else {
             console.log('Shutting down the server...');
             process.exit(1); // close app
         }
     }
 }
-
-const {redisClient: redis} = await startServer()
-
+const serverResult = await startServer();
+const redis = serverResult ? serverResult.redisClient : null;
 export {redis, prismaClient, isRedisAlive}
