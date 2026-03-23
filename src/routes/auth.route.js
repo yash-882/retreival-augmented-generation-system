@@ -10,7 +10,7 @@ const router = express.Router();
 router.post('/sign-up/init',
     checkRedisStatus(false), 
     checkRequiredFields([
-        { name: 'email', type: 'email' },
+        { name: 'email', type: 'string' },
         { name: 'password', type: 'string' }
     ]), 
     lowerCaseEmail, 

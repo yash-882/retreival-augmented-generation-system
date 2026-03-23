@@ -1,7 +1,7 @@
-import { isRedisAlive, prismaClient as prisma } from '../server.js';
+import { prismaClient as prisma } from '../server.js';
 import opError from '../utils/classes/opError.class.js';
 import sendEmail from '../utils/services/email.service.js';
-import { compareBcryptHash, generateBcryptHash, generateRandomInt } from '../utils/services/auth.service.js';
+import { compareBcryptHash, generateBcryptHash, generateRandomInt, limitOTPActions } from '../utils/services/auth.service.js';
 import RedisService from '../utils/services/classes/redis.service.js';
 
 // create user
@@ -13,20 +13,33 @@ export const initUserSignUp = async (req, res, next) => {
   const digits = 6;
   const otp = generateRandomInt(digits).toString();
 
-  const redisService = new RedisService(email, 'SIGN_UP_OTP');
+  const redis = new RedisService(email, 'SIGN_UP_OTP');
 
-  // Store for sign-up verification with a TTL of 10 minutes
-    await redisService.setShortLivedData({ 
-      name, 
-      hashedOtp: await generateBcryptHash(otp, 10),  
-      password, 
-      email: email,
-    }, 600);
+  const data = await redis.getData();
 
+  // limit OTP requests (returns updated count of request or throws error if limit exceeded)
+  limitOTPActions(data, true);
+
+  // otp data
+  const dataToStore = { 
+    name, 
+    hashedOtp: await generateBcryptHash(otp, 10),  
+    password, 
+    email: email,
+    requestCount: data ? data.requestCount + 1 : 1,
+    attemptCount: 0
+  };
+
+  const isUpdate = !!data;
+  
+  // Store/update data for sign-up verification with a TTL of 10 minutes
+  await redis.setShortLivedData(dataToStore, 600, isUpdate);
 
   // Send OTP to user's email
   await sendEmail(email, 'OTP for Registration', `Your OTP for completing the sign-up process is: ${otp}.`);
 
+  console.log(otp);
+  
   res.status(201).json({
     status: 'success',
     message: 'OTP sent to your email. Please verify to complete registration.'
@@ -36,19 +49,30 @@ export const initUserSignUp = async (req, res, next) => {
 export const completeUserSignUp = async (req, res, next) => {
   const { email, otp } = req.body;
 
-  const redisService = new RedisService(email, 'SIGN_UP_OTP');
+  const redis = new RedisService(email, 'SIGN_UP_OTP');
 
-  const storedData = await redisService.getData();
+  const data = await redis.getData();
 
-  if (!storedData) {
+  if (!data) {
     return next(new opError('OTP expired or invalid session. Please request a new OTP.', 400));
   }
 
-  // Compare the provided OTP with the stored OTP, the util throws error if invalid
-  await compareBcryptHash(otp, storedData.hashedOtp, 'Invalid OTP. Please try again.')
+  // limit OTP requests (returns updated count of attempt or throws error if limit exceeded)
+  limitOTPActions(data, false);
 
-  // proceed to create the user
-  const { name, email: storedEmail, password } = storedData;
+  const isValid = await compareBcryptHash(otp, data.hashedOtp, false);
+
+  if (!isValid) {
+    await redis.setShortLivedData({ 
+      ...data, 
+      attemptCount: (data.attemptCount || 0) + 1 }, 600, true);
+
+    return next(new opError('Invalid OTP. Please try again.', 401));
+  }
+
+    // proceed to create the user
+  const { name, email: storedEmail, password } = data;
+
   const hashedPassword = await generateBcryptHash(password, 12); // hashed password
 
   const newUser = await prisma.user.create({
@@ -60,7 +84,7 @@ export const completeUserSignUp = async (req, res, next) => {
   });
 
   // Remove the OTP data from Redis after successful sign-up
-  await redisService.deleteData();
+  await redis.deleteData();
 
   newUser.password = undefined; // remove password from the response
 
