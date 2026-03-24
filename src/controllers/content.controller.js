@@ -1,4 +1,3 @@
-import { __wbg_String_8f0eb39a4a4c2f66 } from "@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs";
 import { Prisma } from "../../prisma/generated/prisma/client.ts";
 import { prismaClient } from "../server.js"
 import { getAnswersByAi, getEmbeddings } from "../utils/services/ai.service.js";
@@ -27,44 +26,45 @@ export const uploadFile = async (req, res, next) => {
   const embeddings = await getEmbeddings(chunks)
 
   if(embeddings.length === 0 || embeddings[0].values.length === 0)
-    return next(new Error("Could not generate embeddings for the provided question."))
+    return next(new opError("Could not generate embeddings for the provided question.", 502))
   
 
   let pdf;
 
-  // start transaction
+  // start transation for atomicity
   await prismaClient.$transaction(async (tx) => {
 
-    // insert PDF
-    pdf = await tx.pdf.create({
-      data: {
-        file_name: file.originalname,
-      }
-    })
+    // insert pdf
+  pdf = await tx.pdf.create({
+    data: {
+      file_name: file.originalname,
+      user_id: req.user.id,
+    }
+  });
 
-    await Promise.all(
-      chunks.map((chunk, index) => {
-        const vec = JSON.stringify(embeddings[index].values);
+  // create array of SQL value tuples for bulk insert
+  const values = chunks.map((chunk, index) => {
+    const vec = JSON.stringify(embeddings[index].values);
+    return Prisma.sql`(
+      gen_random_uuid(), 
+      ${pdf.id}::uuid, -- pdf id
+      ${req.user.id}::uuid, -- makes sure the user can only query their own data
+      ${chunk}, -- chunk text
+      ${index}, -- chunk index
+      ${vec}::vector -- embedding
+    )`;
+  });
 
-        // insert PDF chunk
-        return tx.$queryRaw(
-          Prisma.sql`
-        INSERT INTO pdf_chunk (id, pdf_id, chunk_text, chunk_index, embedding)
-        VALUES (
-          gen_random_uuid(),
-          ${pdf.id}::uuid,
-          ${chunk},
-          ${index},
-          ${vec}::vector
-        )
-      `
-    );
-  })
-);
-
-  return pdf
-})
-    res.json({
+  // insert all pdf chunks
+  await tx.$queryRaw(
+    Prisma.sql`
+      INSERT INTO pdf_chunk (id, pdf_id, user_id, chunk_text, chunk_index, embedding)
+      -- output values: ( id, pdf_id, user_id, chunk_text, chunk_index, embedding ), and so on..
+      VALUES ${Prisma.join(values)} 
+    `
+  );
+});
+    res.status(201).json({
         data: {
           message: 'File uploaded successfully',
           pdf: pdf,
@@ -74,11 +74,11 @@ export const uploadFile = async (req, res, next) => {
 
 export const getAnswers = async (req, res, next) => {
   const { question } = req.body || {};
-  
+
   const embeddingsDetails = await getEmbeddings([question]);
 
   if(embeddingsDetails.length === 0 || embeddingsDetails[0].values.length === 0)
-    return next(new Error('Could not generate embeddings for the provided question.'))
+    return next(new opError('Could not generate embeddings for the provided question.', 502))
 
 
   // search vector database
@@ -88,13 +88,15 @@ export const getAnswers = async (req, res, next) => {
       embedding <=> ${JSON.stringify(embeddingsDetails[0].values)}::vector
       ) AS similarity
     FROM pdf_chunk
+    WHERE
+    user_id = ${req.user.id}::uuid -- return only the pdf chunks that belong to the user
     ORDER BY similarity DESC
     LIMIT 5
     `
   );
 
   if(results.length === 0 || parseFloat(results[0].similarity) < 0.5){
-    return res.json({
+    return res.status(200).json({
       data: {
         answer: "No relevant information found across your uploaded documents."
       }
@@ -107,7 +109,7 @@ export const getAnswers = async (req, res, next) => {
   // generate answer
   const answer = await getAnswersByAi({context, question});
 
-  res.json({
+  res.status(200).json({
     data: {
       answer,
     }
