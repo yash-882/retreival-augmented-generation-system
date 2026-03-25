@@ -51,8 +51,6 @@ export const initUserSignUp = async (req, res, next) => {
 
   // Send OTP to user's email
   await sendEmail(email, 'OTP for Registration', `Your OTP for completing the sign-up process is: ${otp}.`);
-
-  console.log(otp);
   
   res.status(201).json({
     status: 'success',

@@ -18,7 +18,11 @@ class RedisService {
     }
     
     getKey(){
-        return `${this.purpose}:${this.uniqueID}`
+        // key of 32 chars 
+        return createHash("sha256")
+        .update(`${this.purpose}:${this.uniqueID}`)
+        .digest("hex")
+        .slice(0, 16)
     }
 
     // stores data with expiration time in Redis
