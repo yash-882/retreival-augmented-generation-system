@@ -4,6 +4,7 @@ import { getAnswersByAi, getEmbeddings } from "../utils/services/ai.service.js";
 import { cleanPdfText, getPdfChunks, validatePdfResult } from "../utils/services/pdf.service.js";
 import { extractText } from "unpdf";
 import opError from "../utils/classes/opError.class.js";
+import { getCache, setCache } from "../utils/services/cache.service.js";
 
 export const uploadFile = async (req, res, next) => {
     const file = req.file;
@@ -80,11 +81,10 @@ export const getAnswers = async (req, res, next) => {
   if(embeddingsDetails.length === 0 || embeddingsDetails[0].values.length === 0)
     return next(new opError('Could not generate embeddings for the provided question.', 502))
 
-
   // search vector database
   const results = await prismaClient.$queryRaw(
     Prisma.sql`
-    SELECT chunk_text, 1 - (
+    SELECT pdf_id, chunk_text, 1 - (
       embedding <=> ${JSON.stringify(embeddingsDetails[0].values)}::vector
       ) AS similarity
     FROM pdf_chunk
@@ -94,7 +94,7 @@ export const getAnswers = async (req, res, next) => {
     LIMIT 5
     `
   );
-
+  
   if(results.length === 0 || parseFloat(results[0].similarity) < 0.5){
     return res.status(200).json({
       data: {
@@ -102,17 +102,54 @@ export const getAnswers = async (req, res, next) => {
       }
     })
   }
+  
+  let data;
+  
+  // check if the data is stored in cache 
+  const pdfIds = [ ...new Set(results.map(r => r.pdf_id)) ]
+  const keySource = `${question}:${pdfIds.join()}:${req.user.id}`
+  data = await getCache(keySource)
 
+  let isCached = true; // cache flag
+
+  // cache not present, call LLM to generate answers
+  if(!data || !data.answer){
+
+    isCached = false;
+  
   // clean context
   const context = results.map(r => r.chunk_text).join("\n\n");
-
+  
   // generate answer
-  const answer = await getAnswersByAi({context, question});
+  const answer = await getAnswersByAi({ context, question });
 
-  res.status(200).json({
-    data: {
-      answer,
+  // find pdf sources of answer
+  const sources = await prismaClient.pdf.findMany({
+    where: {
+      id: { in: pdfIds },
+      user_id: req.user.id
+    },
+    select: {
+      id: true,
+      file_name: true
     }
   });
-  
+
+  data = {
+    answer,
+    sources: sources
+  }
+
+  // store data in redis as a cache
+  await setCache(keySource, data, 600)
+  }
+
+  // send answer
+  res.status(200).json({
+    data: {
+      content: data,
+      isCached: !!isCached,
+    }
+  });
+
 }
