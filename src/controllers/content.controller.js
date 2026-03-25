@@ -1,7 +1,7 @@
 import { Prisma } from "../../prisma/generated/prisma/client.ts";
 import { prismaClient } from "../server.js"
 import { getAnswersByAi, getEmbeddings } from "../utils/services/ai.service.js";
-import { cleanPdfText, getPdfChunks, validatePdfResult } from "../utils/services/pdf.service.js";
+import { cleanPdfText, getPdfChunks, getPdfHash, validatePdfResult } from "../utils/services/pdf.service.js";
 import { extractText } from "unpdf";
 import opError from "../utils/classes/opError.class.js";
 import { getCache, setCache } from "../utils/services/cache.service.js";
@@ -18,9 +18,9 @@ export const uploadFile = async (req, res, next) => {
     // throws error if not satisfied with the conditions
     validatePdfResult(cleanText)
 
-    // get chunks 
     // Note: (smaller chunks -> more api calls for embeddings + more rows are created + weaker context per chunk)
-
+    
+    // get chunks 
   const chunks = getPdfChunks(cleanText, 20, 800) // returns an array of chunks 
 
   // get embeddings from AI 
@@ -28,7 +28,6 @@ export const uploadFile = async (req, res, next) => {
 
   if(embeddings.length === 0 || embeddings[0].values.length === 0)
     return next(new opError("Could not generate embeddings for the provided question.", 502))
-  
 
   let pdf;
 
@@ -39,6 +38,7 @@ export const uploadFile = async (req, res, next) => {
   pdf = await tx.pdf.create({
     data: {
       file_name: file.originalname,
+      file_hash: req.fileHash || getPdfHash(file.buffer),
       user_id: req.user.id,
     }
   });

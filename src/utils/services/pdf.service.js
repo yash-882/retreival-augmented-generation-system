@@ -1,4 +1,5 @@
 import opError from "../classes/opError.class.js"
+import crypto from 'crypto';
 
 // removes encoded text like \n , \s
 export const cleanPdfText = (text = 'defaultText') => {
@@ -53,3 +54,12 @@ export const getPdfChunks = (text, overlap=20, maxChunkSize=800) => {
 
   return chunks;
 };
+
+// return hash string
+export const getPdfHash = (fileBuffer) => {
+  return crypto
+  .createHash('sha256')
+  .update(fileBuffer)
+  .digest('hex')
+  .slice(0, 20);
+}
