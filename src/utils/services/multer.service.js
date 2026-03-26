@@ -19,7 +19,7 @@ export default function uploader({
             files: 1
         },
 
-        // check if file is an image
+       // checks
         fileFilter: (req, file, cb) => {
 
             //error on not-allowed mimetype  (mimetype eg: image/jpeg, video/mp4, etc)

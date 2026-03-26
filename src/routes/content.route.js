@@ -16,7 +16,7 @@ router.use(authenticate)
 // content upload
 router.post('/upload-file', 
 multerUploader({
-    fileSize: 1024 * 1024 * 5, // 5MB
+    fileSize: 1024 * 1024 * process.env.FILE_SIZE_LIMIT_MB, // limit file size
     mimetypes: ['application/pdf']
 }).single('file'), 
 

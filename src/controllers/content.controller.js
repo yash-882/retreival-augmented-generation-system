@@ -3,7 +3,6 @@ import { prismaClient } from "../server.js"
 import { getAnswersByAi, getEmbeddings } from "../utils/services/ai.service.js";
 import { cleanPdfText, getPdfChunks, getPdfHash, validatePdfResult } from "../utils/services/pdf.service.js";
 import { extractText } from "unpdf";
-import opError from "../utils/classes/opError.class.js";
 import { deleteCache, getCache, setCache } from "../utils/services/cache.service.js";
 
 export const uploadFile = async (req, res, next) => {
@@ -25,9 +24,6 @@ export const uploadFile = async (req, res, next) => {
 
   // get embeddings from AI 
   const embeddings = await getEmbeddings(chunks)
-
-  if(embeddings.length === 0 || embeddings[0].values.length === 0)
-    return next(new opError("Could not generate embeddings for the provided question.", 502))
 
   let pdf;
 
@@ -82,9 +78,6 @@ export const getAnswers = async (req, res, next) => {
   const { question } = req.body || {};
 
   const embeddingsDetails = await getEmbeddings([question]);
-
-  if(embeddingsDetails.length === 0 || embeddingsDetails[0].values.length === 0)
-    return next(new opError('Could not generate embeddings for the provided question.', 502))
 
   // search vector database
   const results = await prismaClient.$queryRaw(
