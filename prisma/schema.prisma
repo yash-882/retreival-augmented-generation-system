@@ -17,6 +17,7 @@ model pdf {
   file_hash  String      @db.VarChar(100)
 
   @@index([user_id])
+  @@index([id, user_id])
 }
 
 model pdf_chunk {
@@ -28,7 +29,7 @@ model pdf_chunk {
   embedding   Unsupported("vector(768)") //embedding index applied with migration files
   user_id     String   @db.Uuid
 
-  @@index([pdf_id])
+  @@index([user_id])
 }
 
 model user {
