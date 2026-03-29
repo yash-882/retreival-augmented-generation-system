@@ -21,13 +21,13 @@ model pdf {
 }
 
 model pdf_chunk {
-  id          String   @id @default(uuid()) @db.Uuid
-  pdf_id      String   @db.Uuid
-  pdf         pdf      @relation(fields: [pdf_id], references: [id], onDelete: Cascade)
+  id          String                     @id @default(uuid()) @db.Uuid
+  pdf_id      String                     @db.Uuid
+  pdf         pdf                        @relation(fields: [pdf_id], references: [id], onDelete: Cascade)
   chunk_text  String
   chunk_index Int
   embedding   Unsupported("vector(768)") //embedding index applied with migration files
-  user_id     String   @db.Uuid
+  user_id     String                     @db.Uuid
 
   @@index([user_id])
 }
@@ -36,7 +36,27 @@ model user {
   id         String   @id @default(uuid()) @db.Uuid
   email      String   @unique @db.VarChar(255)
   password   String   @db.VarChar(70)
-  name       String  @db.VarChar(50) @default("default_name")
+  name       String   @default("default_name") @db.VarChar(50)
   created_at DateTime @default(now())
   pdfs       pdf[]
+}
+
+model conversation {
+  id String @id @default(uuid()) @db.Uuid
+  user_id String @db.Uuid
+  created_at DateTime @default(now())
+  messages message[]
+}
+
+enum Role {
+  USER
+  ASSISTANT
+}
+
+model message {
+  id String @id @default(uuid()) @db.Uuid
+  conversation_id String @db.Uuid
+  content String
+  conversation conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  role Role
 }

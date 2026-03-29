@@ -32,3 +32,13 @@ export type pdf_chunk = Prisma.pdf_chunkModel
  * 
  */
 export type user = Prisma.userModel
+/**
+ * Model conversation
+ * 
+ */
+export type conversation = Prisma.conversationModel
+/**
+ * Model message
+ * 
+ */
+export type message = Prisma.messageModel
