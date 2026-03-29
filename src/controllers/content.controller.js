@@ -4,23 +4,25 @@ import { getAnswersByAi, getAnswersByAiStream, getEmbeddings } from "../utils/se
 import { cleanPdfText, getPdfChunks, getPdfHash, validatePdfResult } from "../utils/services/pdf.service.js";
 import { extractText } from "unpdf";
 import { deleteCache, getCache, setCache } from "../utils/services/cache.service.js";
+import { getOrCreateConversation, saveMessage } from "../utils/services/conversation.service.js";
+import { log } from "node:console";
 
 export const uploadFile = async (req, res, next) => {
-    const file = req.file;
+  const file = req.file;
 
-    // get all text extracted from PDF as a string
-    const data = await extractText(new Uint8Array(file.buffer), { mergePages: true });
+  // get all text extracted from PDF as a string
+  const data = await extractText(new Uint8Array(file.buffer), { mergePages: true });
 
-    // clean text
-    const cleanText = cleanPdfText(data.text)
+  // clean text
+  const cleanText = cleanPdfText(data.text)
 
-    // throws error if not satisfied with the conditions
-    validatePdfResult(cleanText)
+  // throws error if not satisfied with the conditions
+  validatePdfResult(cleanText)
 
-    // Note: (smaller chunks -> more api calls for embeddings + more rows are created + weaker context per chunk)
-    
-    // get chunks 
-    const chunks = getPdfChunks(cleanText, 20, 800) // returns an array of chunks
+  // Note: (smaller chunks -> more api calls for embeddings + more rows are created + weaker context per chunk)
+
+  // get chunks 
+  const chunks = getPdfChunks(cleanText, 20, 800) // returns an array of chunks
 
   // get embeddings from AI 
   const embeddings = await getEmbeddings(chunks)
@@ -31,18 +33,18 @@ export const uploadFile = async (req, res, next) => {
   await prismaClient.$transaction(async (tx) => {
 
     // insert pdf
-  pdf = await tx.pdf.create({
-    data: {
-      file_name: file.originalname,
-      file_hash: req.fileHash || getPdfHash(file.buffer),
-      user_id: req.user.id,
-    }
-  });
+    pdf = await tx.pdf.create({
+      data: {
+        file_name: file.originalname,
+        file_hash: req.fileHash || getPdfHash(file.buffer),
+        user_id: req.user.id,
+      }
+    });
 
-  // create array of SQL value tuples for bulk insert
-  const values = chunks.map((chunk, index) => {
-    const vec = JSON.stringify(embeddings[index].values);
-    return Prisma.sql`(
+    // create array of SQL value tuples for bulk insert
+    const values = chunks.map((chunk, index) => {
+      const vec = JSON.stringify(embeddings[index].values);
+      return Prisma.sql`(
       gen_random_uuid(), 
       ${pdf.id}::uuid, -- pdf id
       ${req.user.id}::uuid, -- makes sure the user can only query their own data
@@ -50,33 +52,37 @@ export const uploadFile = async (req, res, next) => {
       ${index}, -- chunk index
       ${vec}::vector -- embedding
     )`;
-  });
+    });
 
-  // insert all pdf chunks
-  await tx.$queryRaw(
-    Prisma.sql`
+    // insert all pdf chunks
+    await tx.$queryRaw(
+      Prisma.sql`
       INSERT INTO pdf_chunk (id, pdf_id, user_id, chunk_text, chunk_index, embedding)
       -- output values: ( id, pdf_id, user_id, chunk_text, chunk_index, embedding ), and so on..
       VALUES ${Prisma.join(values)} 
     `
-  );
+    );
 
-});
+  });
   // delete the pdfs list from cache
   await deleteCache(`user-pdfs:${req.user.id}`);
 
   // send response
   res.status(201).json({
-        data: {
-          message: 'File uploaded successfully',
-          pdf: pdf,
-        }
-    })
+    data: {
+      message: 'File uploaded successfully',
+      pdf: pdf,
+    }
+  })
 }
 
 export const getAnswers = async (req, res, next) => {
-  const { question } = req.body || {};
+  const { question, conversationId } = req.body || {};
 
+  // get conversation or create on if not found
+  const conversation = await getOrCreateConversation(req.user.id, conversationId);
+
+  // get embeddings
   const embeddingsDetails = await getEmbeddings([question]);
 
   // search vector database
@@ -92,54 +98,60 @@ export const getAnswers = async (req, res, next) => {
     LIMIT 5
     `
   );
-  
-  if(results.length === 0 || parseFloat(results[0].similarity) < 0.5){
+
+  if (results.length === 0 || parseFloat(results[0].similarity) < 0.5) {
     return res.status(200).json({
       data: {
         answer: "No relevant information found across your uploaded documents."
       }
     })
   }
-  
+
   let data;
-  
+
   // check if the data is stored in cache 
-  const pdfIds = [ ...new Set(results.map(r => r.pdf_id)) ]
+  const pdfIds = [...new Set(results.map(r => r.pdf_id))]
   const keySource = `${question}:${pdfIds.join()}:${req.user.id}`
   data = await getCache(keySource)
 
   let isCached = true; // cache flag
 
   // cache not present, call LLM to generate answers
-  if(!data || !data.answer){
+  if (!data || !data.answer) {
 
     isCached = false;
-  
-  // clean context
-  const context = results.map(r => r.chunk_text).join("\n\n");
-  
-  // generate answer
-  const answer = await getAnswersByAi({ context, question });
 
-  // find pdf sources of answer
-  const sources = await prismaClient.pdf.findMany({
-    where: {
-      id: { in: pdfIds },
-      user_id: req.user.id
-    },
-    select: {
-      id: true,
-      file_name: true
+    // clean context
+    const context = results.map(r => r.chunk_text).join("\n\n");
+
+    // save user's message
+    await saveMessage(conversationId, question, 'USER')
+
+    // generate answer
+    const answer = await getAnswersByAi({ context, question });
+
+    //save assistant's message
+    await saveMessage(conversationId, answer, 'ASSISTANT')
+
+    // find pdf sources of answer
+    const sources = await prismaClient.pdf.findMany({
+      where: {
+        id: { in: pdfIds },
+        user_id: req.user.id
+      },
+      select: {
+        id: true,
+        file_name: true
+      }
+    });
+
+    data = {
+      answer,
+      sources: sources
     }
-  });
 
-  data = {
-    answer,
-    sources: sources
-  }
-
-  // store data in redis as a cache
-  await setCache(keySource, data, 600)
+    // store data in redis as a cache
+    await setCache(keySource, data, 600)
   }
 
   // send answer
@@ -216,7 +228,7 @@ export const deleteMyFile = async (req, res, next) => {
 }
 
 export const getAnswersStream = async (req, res, next) => {
-  const { question } = req.body || {};
+  const { question, conversationId } = req.body || {};
 
   // headers for stream
   res.setHeader('Connection', 'keep-alive') // tells to keep the connection open
@@ -225,16 +237,19 @@ export const getAnswersStream = async (req, res, next) => {
 
   res.flushHeaders() // flush immediately so the client knows the connection is still open
 
- // helper to write an SSE event
+  // get or intiate a conversation
+  const conversation = await getOrCreateConversation(req.user.id, conversationId);
+
+  // helper to write an SSE event
   // SSE format is strictly: "data: <payload>\n\n"
   const sendEvent = (eventType, payload) => {
     res.write(`data: ${JSON.stringify({ type: eventType, ...payload })}\n\n`);
   };
- 
+
   try {
     // get embedding of question
     const embeddingDetails = await getEmbeddings([question]);
- 
+
     // vector search
     const results = await prismaClient.$queryRaw(
       Prisma.sql`
@@ -247,65 +262,82 @@ export const getAnswersStream = async (req, res, next) => {
         LIMIT 5
       `
     );
- 
+
     // no relevant context found
     if (results.length === 0 || parseFloat(results[0].similarity) < 0.5) {
       sendEvent("done", { token: "No relevant information found across your uploaded documents." });
       res.end();
       return;
     }
- 
+
     // check cache before streaming
     // if cached — stream the cached answer token by token
     const pdfIds = [...new Set(results.map((r) => r.pdf_id))];
     const keySource = `${question}:${pdfIds.join()}:${req.user.id}`;
     const cached = await getCache(keySource);
-  
+    
     if (cached && cached.answer) {
+      // save user's message in DB
+      await saveMessage(conversation.id, question, 'USER')
+
+      // save assistant's message 
+      await saveMessage(conversation.id, cached.answer, 'ASSISTANT')
+
       // simulate streaming from cache — split by word and send
       const words = cached.answer.split(" ");
       for (const word of words) {
         sendEvent("chunk", { token: word + " " });
       }
+
+      // send final event with sources
       sendEvent("done", { sources: cached.sources, isCached: true });
       res.end();
       return;
     }
- 
-    // get sources
-    const sources = await prismaClient.pdf.findMany({
-      where: {
-        id: { in: pdfIds },
-        user_id: req.user.id,
-      },
-      select: { id: true, file_name: true },
-    });
- 
+
     // clean context
-    const context = results.map((r) => r.chunk_text).join("\n\n");
- 
+    const context = results.map(r => r.chunk_text).join("\n\n");
+
+    // save user's message in DB
+    await saveMessage(conversation.id, question, 'USER')
+
     // stream answer from LLM
     await getAnswersByAiStream({
       context,
       question,
- 
+
       // called for every token — write to SSE immediately
       onChunk: (token) => {
         sendEvent("chunk", { token });
       },
- 
+
       // called when stream is fully done
       onDone: async (fullAnswer) => {
+
+        // save assistant's message in DB
+        await saveMessage(conversation.id, fullAnswer, 'ASSISTANT')
+
+        // get sources
+        const sources = await prismaClient.pdf.findMany({
+          where: {
+            id: { in: pdfIds },
+            user_id: req.user.id,
+          },
+          select: { id: true, file_name: true },
+        });
+
         // save to cache
         await setCache(keySource, { answer: fullAnswer, sources }, 600);
- 
+
         // send final event with sources
         sendEvent("done", { sources, isCached: false });
         res.end();
       },
     });
- 
+
   } catch (err) {
+    console.log(err);
+    
     // SSE connections can't use normal error middleware
     // so we send the error as an SSE event and close
     sendEvent("error", { message: err.message || "Something went wrong." });
