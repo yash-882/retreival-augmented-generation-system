@@ -120,7 +120,8 @@ export const login = async (req, res, next) => {
   const user = await findUserByFilter({email}, 'Email is not registered with us.', true, true)
 
   // compare password
-  await compareBcryptHash(password, user.password, true, 'Incorrect password.');
+  await compareBcryptHash(
+    password, user.password, true, 'Incorrect password.', 400);
 
   // get tokens
   const { accessToken, refreshToken } = generateTokens({id: user.id, name: user.name})
@@ -216,7 +217,8 @@ export const changePassword = async (req, res, next) => {
   const user = await findUserByFilter({ id: req.user.id }, 'User not found.', true, true);
   
   // verify old password
-  await compareBcryptHash(currentPassword, user.password, true, 'Current password is incorrect.');
+  await compareBcryptHash(
+    currentPassword, user.password, true, 'Current password is incorrect.', 400);
   
   // check if the new password is not different
   if(currentPassword === newPassword){

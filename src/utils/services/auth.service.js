@@ -8,11 +8,12 @@ export const generateBcryptHash = async (text, saltRounds = 10) => {
 }
 
 // compares bcrypt hash with plain text, throws error if result is invalid
-export const compareBcryptHash = async (text, hash, throwErr=true, message = 'Invalid credentials') => {
+export const compareBcryptHash = async (
+    text, hash, throwErr=true, message = 'Invalid credentials', httpStatusOnErr=400) => {
     const isValid = await bcrypt.compare(text, hash);
     
     if(isValid == false && throwErr === true){
-        throw new opError(message, 401)
+        throw new opError(message, httpStatusOnErr)
     }
 
     return isValid;
