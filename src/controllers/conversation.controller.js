@@ -4,8 +4,9 @@ import { prismaClient as prisma } from "../server.js";
 // get all messages for a specific conversation
 export const getMessages = async (req, res, next) => {
   const { conversationId } = req.params;
+  const { page, limit } = req.pagination;
+  const skip = (page - 1) * limit;
 
-  // find conversation with messages
   const conversation = await prisma.conversation.findUnique({
     where: {
       id: conversationId,
@@ -13,17 +14,15 @@ export const getMessages = async (req, res, next) => {
     },
     include: {
       messages: {
-        select:{
-          id: true,
-          content: true,
-          role: true,
-        },
         orderBy: {
           created_at: 'asc',
         },
+        skip,
+        take: limit,
       },
     },
   });
+
 
   if (!conversation) {
     return next(new opError('Conversation not found.', 404));
@@ -32,6 +31,8 @@ export const getMessages = async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     data: {
+      page,
+      limit,
       messages: conversation.messages,
     },
   });
@@ -56,22 +57,23 @@ export const deleteConversation = async (req, res, next) => {
 
 // get all conversations for a user
 export const getMyConversations = async (req, res, next) => {
+  const {skip, limit, page} = req.pagination;
   const conversations = await prisma.conversation.findMany({
     where: {
       user_id: req.user.id,
     },
-    select: {
-      id: true,
-      created_at: true,
-    },
     orderBy: {
       created_at: 'desc',
     },
+    skip,
+    take: limit,
   });
 
   res.status(200).json({
     status: 'success',
     data: {
+      page,
+      limit,
       conversations,
     },
   });

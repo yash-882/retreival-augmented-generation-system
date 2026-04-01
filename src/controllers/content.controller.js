@@ -5,7 +5,6 @@ import { cleanPdfText, getPdfChunks, getPdfHash, validatePdfResult } from "../ut
 import { extractText } from "unpdf";
 import { deleteCache, getCache, setCache } from "../utils/services/cache.service.js";
 import { getOrCreateConversation, saveMessage } from "../utils/services/conversation.service.js";
-import { log } from "node:console";
 
 export const uploadFile = async (req, res, next) => {
   const file = req.file;
@@ -166,44 +165,55 @@ export const getAnswers = async (req, res, next) => {
 
 // user's all uploaded files details (name, created_at)
 export const getMyFiles = async (req, res, next) => {
+    let { page, limit, skip } = req.pagination;
+    
+    // pagination-aware cache key
+    const keySource = `user-pdfs:${req.user.id}:page=${page}:limit=${limit}`;
 
-  // cache layer
-  const keySource = `user-pdfs:${req.user.id}`;
-  const cachedPdfs = await getCache(keySource);
+    // check cache
+    const cachedPdfs = await getCache(keySource);
 
-  // return cached data
-  if (cachedPdfs) {
-    return res.status(200).json({
-      data: {
-        content: cachedPdfs,
-        isCached: true
+    if (cachedPdfs) {
+      return res.status(200).json({
+        data: {
+          content: cachedPdfs,
+          page,
+          limit,
+          isCached: true
+        }
+      });
+    }
+
+    // query DB with pagination
+    const pdfs = await prismaClient.pdf.findMany({
+      where: {
+        user_id: req.user.id
+      },
+      select: {
+        id: true,
+        file_name: true,
+        created_at: true
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        created_at: 'desc' // important for consistent pagination
       }
     });
-  }
 
-  // query DB
-  const pdfs = await prismaClient.pdf.findMany({
-    where: {
-      user_id: req.user.id
-    },
-    select: {
-      id: true,
-      file_name: true,
-      created_at: true
-    }
-  });
+    // cache result
+    await setCache(keySource, pdfs, 600);
 
-  // store in cache
-  await setCache(keySource, pdfs, 600);
+    res.status(200).json({
+      data: {
+        content: pdfs,
+        page,
+        limit,
+        isCached: false
+      }
+    });
 
-  // send response
-  res.status(200).json({
-    data: {
-      content: pdfs,
-      isCached: false
-    }
-  });
-}
+};
 
 // delete user's file
 export const deleteMyFile = async (req, res, next) => {

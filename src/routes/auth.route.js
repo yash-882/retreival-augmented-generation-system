@@ -86,7 +86,6 @@ router.post('/change-password',
     { name: 'currentPassword', type: 'string' },
     { name: 'newPassword', type: 'string' }
 ]), 
-validateSignUpFields, 
 changePassword
 );
 

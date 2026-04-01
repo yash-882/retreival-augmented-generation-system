@@ -5,6 +5,7 @@ import {
     getMessages, 
     getMyConversations 
 } from '../controllers/conversation.controller.js';
+import { paginate } from '../middlewares/pagination.middleware.js';
 
 const router = express.Router();
 
@@ -12,10 +13,10 @@ const router = express.Router();
 router.use(authenticate);
 
 // get all conversations for the logged-in user
-router.get('/list', getMyConversations);
+router.get('/list', paginate(12), getMyConversations);
 
 // get all messages for a specific conversation
-router.get('/:conversationId/messages', getMessages);
+router.get('/:conversationId/messages', paginate(24), getMessages);
 
 // delete a specific conversation
 router.delete('/delete/:conversationId', deleteConversation);

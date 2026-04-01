@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import conversationRouter from './routes/conversation.route.js';
 import userRouter from './routes/user.route.js';
+import QueryString from 'qs';
 
 const app = express();
 
@@ -21,6 +22,11 @@ app.use(cors({
 // body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.set('query parser', (str) => {
+    return QueryString.parse(str);
+});
+
 
 // routes
 app.use('/api/content', contentRouter)
