@@ -1,24 +1,12 @@
 import { prismaClient as prisma } from "../server.js";
 import opError from "../utils/classes/opError.class.js";
 import { compareBcryptHash } from "../utils/services/auth.service.js";
+import { findUserByFilter } from "../utils/services/user.service.js";
 
 // get current user profile
 export const getMe = async (req, res, next) => {
-    const user = await prisma.user.findUnique({
-        where: {
-            id: req.user.id,
-        },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            created_at: true,
-        },
-    });
-
-    if (!user) {
-        return next(new opError('User not found.', 404));
-    }
+    const user = await findUserByFilter(
+        { id: req.user.id }, 'Account not found.', true, true);
 
     res.status(200).json({
         status: 'success',
@@ -75,9 +63,15 @@ export const deleteMe = async (req, res, next) => {
 
     const { password } = req.body;
 
+    // find user
+    const messageOnErr = 'Account not found.';
+    const user = await findUserByFilter(
+        { id: req.user.id }, messageOnErr, true, true);
+
+
     // verify password
     await compareBcryptHash(
-        password, req.user.password, true, 'Incorrect password.', 400);
+        password, user.password, true, 'Incorrect password.', 400);
 
     // delete user
     await prisma.user.delete({
