@@ -124,13 +124,13 @@ export const getAnswers = async (req, res, next) => {
     const context = results.map(r => r.chunk_text).join("\n\n");
 
     // save user's message
-    await saveMessage(conversationId, question, 'USER')
+    await saveMessage(conversation.id, question, 'USER')
 
     // generate answer
     const answer = await getAnswersByAi({ context, question });
 
     //save assistant's message
-    await saveMessage(conversationId, answer, 'ASSISTANT')
+    await saveMessage(conversation.id, answer, 'ASSISTANT')
 
     // find pdf sources of answer
     const sources = await prismaClient.pdf.findMany({
@@ -157,6 +157,7 @@ export const getAnswers = async (req, res, next) => {
   res.status(200).json({
     data: {
       content: data,
+      conversationId: conversation.id,
       isCached: !!isCached,
     }
   });
@@ -239,6 +240,8 @@ export const deleteMyFile = async (req, res, next) => {
 
 export const getAnswersStream = async (req, res, next) => {
   const { question, conversationId } = req.body || {};
+  console.log('conversaiton id received: ', conversationId);
+  
 
   // headers for stream
   res.setHeader('Connection', 'keep-alive') // tells to keep the connection open
@@ -300,7 +303,12 @@ export const getAnswersStream = async (req, res, next) => {
       }
 
       // send final event with sources
-      sendEvent("done", { sources: cached.sources, isCached: true });
+      sendEvent("done", { 
+        conversationId: conversation.id, 
+        sources: cached.sources, 
+        isCached: true 
+      });
+
       res.end();
       return;
     }
@@ -340,7 +348,7 @@ export const getAnswersStream = async (req, res, next) => {
         await setCache(keySource, { answer: fullAnswer, sources }, 600);
 
         // send final event with sources
-        sendEvent("done", { sources, isCached: false });
+        sendEvent("done", { conversationId: conversation.id, sources, isCached: false });
         res.end();
       },
     });
@@ -350,7 +358,11 @@ export const getAnswersStream = async (req, res, next) => {
     
     // SSE connections can't use normal error middleware
     // so we send the error as an SSE event and close
-    sendEvent("error", { message: err.message || "Something went wrong." });
+    sendEvent("error", { 
+      conversationId: conversation.id, 
+      message: err.message || "Something went wrong." 
+    });
+
     res.end();
   }
 
