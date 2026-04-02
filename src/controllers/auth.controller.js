@@ -246,7 +246,7 @@ export const initForgotPassword = async (req, res, next) => {
   const { email } = req.body;
 
   // check if user exists
-  const user = await findUserByFilter({ email }, 'Email is not registered with us.', true, true);
+  await findUserByFilter({ email }, 'Email is not registered with us.', true, true);
 
   // generate 6 digits OTP
   const digits = 6;
@@ -309,7 +309,7 @@ export const completeForgotPassword = async (req, res, next) => {
       attemptCount: (data.attemptCount || 0) + 1
     }, 60, true);
 
-    return next(new opError('Invalid OTP. Please try again.', 401));
+    return next(new opError('Invalid OTP. Please try again.', 400));
   }
 
   // hash new password

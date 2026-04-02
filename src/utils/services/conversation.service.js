@@ -25,12 +25,13 @@ export const getOrCreateConversation = async (userId, conversationId) => {
 };
 
 // save message
-export const saveMessage = async (conversationId, message, role) => {
+export const saveMessage = async (conversationId, message, role, type) => {
   return await prisma.message.create({
     data: {
       conversation_id: conversationId,
       content: message,
-      role
+      role,
+      type,
     },
   });
 };

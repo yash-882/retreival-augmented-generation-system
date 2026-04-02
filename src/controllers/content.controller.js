@@ -240,8 +240,6 @@ export const deleteMyFile = async (req, res, next) => {
 
 export const getAnswersStream = async (req, res, next) => {
   const { question, conversationId } = req.body || {};
-  console.log('conversaiton id received: ', conversationId);
-  
 
   // headers for stream
   res.setHeader('Connection', 'keep-alive') // tells to keep the connection open
@@ -278,6 +276,13 @@ export const getAnswersStream = async (req, res, next) => {
 
     // no relevant context found
     if (results.length === 0 || parseFloat(results[0].similarity) < 0.5) {
+
+      // save message with flag of SUCCESS
+      await saveMessage(conversation.id, question, 'USER', 'SUCCESS')
+
+      // save message with flag of NO RESULT FOUND
+      await saveMessage(conversation.id, '', 'ASSISTANT', 'NO_RESULT')
+
       sendEvent("done", { token: "No relevant information found across your uploaded documents." });
       res.end();
       return;
@@ -291,10 +296,10 @@ export const getAnswersStream = async (req, res, next) => {
     
     if (cached && cached.answer) {
       // save user's message in DB
-      await saveMessage(conversation.id, question, 'USER')
+      await saveMessage(conversation.id, question, 'USER', 'SUCCESS')
 
       // save assistant's message 
-      await saveMessage(conversation.id, cached.answer, 'ASSISTANT')
+      await saveMessage(conversation.id, cached.answer, 'ASSISTANT', 'SUCCESS')
 
       // simulate streaming from cache — split by word and send
       const words = cached.answer.split(" ");
@@ -317,7 +322,7 @@ export const getAnswersStream = async (req, res, next) => {
     const context = results.map(r => r.chunk_text).join("\n\n");
 
     // save user's message in DB
-    await saveMessage(conversation.id, question, 'USER')
+    await saveMessage(conversation.id, question, 'USER', 'SUCCESS')
 
     // stream answer from LLM
     await getAnswersByAiStream({
@@ -333,7 +338,7 @@ export const getAnswersStream = async (req, res, next) => {
       onDone: async (fullAnswer) => {
 
         // save assistant's message in DB
-        await saveMessage(conversation.id, fullAnswer, 'ASSISTANT')
+        await saveMessage(conversation.id, fullAnswer, 'ASSISTANT', 'SUCCESS')
 
         // get sources
         const sources = await prismaClient.pdf.findMany({
