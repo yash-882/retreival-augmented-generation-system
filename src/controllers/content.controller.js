@@ -283,7 +283,12 @@ export const getAnswersStream = async (req, res, next) => {
       // save message with flag of NO RESULT FOUND
       await saveMessage(conversation.id, '', 'ASSISTANT', 'NO_RESULT')
 
-      sendEvent("done", { token: "No relevant information found across your uploaded documents." });
+      sendEvent("done", { 
+        token: "No relevant information found across your uploaded documents.",
+        conversationId: conversation.id, 
+        sources: [], 
+        isCached: false 
+      });
       res.end();
       return;
     }
