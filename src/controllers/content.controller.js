@@ -63,7 +63,9 @@ export const uploadFile = async (req, res, next) => {
     );
 
   });
-  // delete the pdfs list from cache
+  
+  // invalidate the full user PDF list cache
+  // key is flat so this always hits the right key
   await deleteCache(`user-pdfs:${req.user.id}`);
 
   // send response
@@ -166,53 +168,46 @@ export const getAnswers = async (req, res, next) => {
 
 // user's all uploaded files details (name, created_at)
 export const getMyFiles = async (req, res, next) => {
-    let { page, limit, skip } = req.pagination;
-    
-    // pagination-aware cache key
-    const keySource = `user-pdfs:${req.user.id}:page=${page}:limit=${limit}`;
+  // cache key
+  // this way uploadFile and deleteMyFile can always invalidate with one simple key
+  const cacheKey = `user-pdfs:${req.user.id}`;
 
-    // check cache
-    const cachedPdfs = await getCache(keySource);
+  // check cache
+  const cachedPdfs = await getCache(cacheKey);
 
-    if (cachedPdfs) {
-      return res.status(200).json({
-        data: {
-          content: cachedPdfs,
-          page,
-          limit,
-          isCached: true
-        }
-      });
-    }
-
-    // query DB with pagination
-    const pdfs = await prismaClient.pdf.findMany({
-      where: {
-        user_id: req.user.id
-      },
-      select: {
-        id: true,
-        file_name: true,
-        created_at: true
-      },
-      skip,
-      take: limit,
-      orderBy: {
-        created_at: 'desc' // important for consistent pagination
-      }
-    });
-
-    // cache result
-    await setCache(keySource, pdfs, 600);
-
-    res.status(200).json({
+  if (cachedPdfs) {
+    return res.status(200).json({
       data: {
-        content: pdfs,
-        page,
-        limit,
-        isCached: false
+        content: cachedPdfs,
+        isCached: true
       }
     });
+  }
+
+  // cache miss — fetch full list from DB (no skip/take)
+  const pdfs = await prismaClient.pdf.findMany({
+    where: {
+      user_id: req.user.id
+    },
+    select: {
+      id: true,
+      file_name: true,
+      created_at: true
+    },
+    orderBy: {
+      created_at: 'desc'
+    }
+  });
+
+  // cache the full list under the flat key
+  await setCache(cacheKey, pdfs, 600);
+
+  res.status(200).json({
+    data: {
+      content: pdfs,
+      isCached: false
+    }
+  });
 
 };
 
@@ -228,7 +223,7 @@ export const deleteMyFile = async (req, res, next) => {
     }
   });
 
-  // delete from cache too
+  // flat key — always matches what getMyFiles set
   await deleteCache(`user-pdfs:${req.user.id}`);
 
   // send response
@@ -283,11 +278,11 @@ export const getAnswersStream = async (req, res, next) => {
       // save message with flag of NO RESULT FOUND
       await saveMessage(conversation.id, '', 'ASSISTANT', 'NO_RESULT')
 
-      sendEvent("done", { 
+      sendEvent("done", {
         token: "No relevant information found across your uploaded documents.",
-        conversationId: conversation.id, 
-        sources: [], 
-        isCached: false 
+        conversationId: conversation.id,
+        sources: [],
+        isCached: false
       });
       res.end();
       return;
@@ -298,7 +293,7 @@ export const getAnswersStream = async (req, res, next) => {
     const pdfIds = [...new Set(results.map((r) => r.pdf_id))];
     const keySource = `${question}:${pdfIds.join()}:${req.user.id}`;
     const cached = await getCache(keySource);
-    
+
     if (cached && cached.answer) {
       // save user's message in DB
       await saveMessage(conversation.id, question, 'USER', 'SUCCESS')
@@ -313,10 +308,10 @@ export const getAnswersStream = async (req, res, next) => {
       }
 
       // send final event with sources
-      sendEvent("done", { 
-        conversationId: conversation.id, 
-        sources: cached.sources, 
-        isCached: true 
+      sendEvent("done", {
+        conversationId: conversation.id,
+        sources: cached.sources,
+        isCached: true
       });
 
       res.end();
@@ -365,12 +360,12 @@ export const getAnswersStream = async (req, res, next) => {
 
   } catch (err) {
     console.log(err);
-    
+
     // SSE connections can't use normal error middleware
     // so we send the error as an SSE event and close
-    sendEvent("error", { 
-      conversationId: conversation.id, 
-      message: err.message || "Something went wrong." 
+    sendEvent("error", {
+      conversationId: conversation.id,
+      message: err.message || "Something went wrong."
     });
 
     res.end();
