@@ -262,14 +262,19 @@ export const getAnswersStream = async (req, res, next) => {
     // vector search
     const results = await prismaClient.$queryRaw(
       Prisma.sql`
-        SELECT pdf_id, chunk_text, 1 - (
-          embedding <=> ${JSON.stringify(embeddingDetails[0].values)}::vector
-        ) AS similarity
-        FROM pdf_chunk
-        WHERE user_id = ${req.user.id}::uuid
-        ORDER BY similarity DESC
-        LIMIT 5
-      `
+  SELECT 
+    p.id, 
+    p.file_name, 
+    chunk_text, 
+    1 - (
+      embedding <=> ${JSON.stringify(embeddingDetails[0].values)}::vector
+    ) AS similarity
+  FROM pdf_chunk pc
+  JOIN pdf p ON p.id = pc.pdf_id
+  WHERE pc.user_id = ${req.user.id}::uuid
+  ORDER BY similarity DESC
+  LIMIT 5
+`
     );
 
     // no relevant context found
@@ -343,14 +348,19 @@ export const getAnswersStream = async (req, res, next) => {
         // save assistant's message in DB
         await saveMessage(conversation.id, fullAnswer, 'ASSISTANT', 'SUCCESS')
 
-        // get sources
-        const sources = await prismaClient.pdf.findMany({
-          where: {
-            id: { in: pdfIds },
-            user_id: req.user.id,
-          },
-          select: { id: true, file_name: true },
+        // get answer sources 
+       const sourcesMap = new Map();
+
+        results.forEach(r => {
+          if (!sourcesMap.has(r.pdf_id)) {
+            sourcesMap.set(r.pdf_id, {
+              id: r.pdf_id,
+              file_name: r.file_name
+            });
+          }
         });
+
+        const sources = Array.from(sourcesMap.values());
 
         // save to cache
         await setCache(keySource, { answer: fullAnswer, sources }, 600);
