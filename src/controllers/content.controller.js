@@ -237,23 +237,37 @@ export const getAnswersStream = async (req, res, next) => {
   const { question, conversationId } = req.body || {};
 
   // headers for stream
-  res.setHeader('Connection', 'keep-alive') // tells to keep the connection open
-  res.setHeader('Cache-Control', 'no-cache') // tells not to cache any response
-  res.setHeader('Content-Type', 'text/event-stream') // tells the content type is SSE (server-side event)
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Content-Type', 'text/event-stream')
 
-  res.flushHeaders() // flush immediately so the client knows the connection is still open
-
-  // get or intiate a conversation
-  const conversation = await getOrCreateConversation(req.user.id, conversationId);
-
-  // delete the messages from cache (latest message page)
-  await deleteCache(`messages:${req.user.id}:${conversation.id}:first`);
+  res.flushHeaders()
 
   // helper to write an SSE event
-  // SSE format is strictly: "data: <payload>\n\n"
   const sendEvent = (eventType, payload) => {
     res.write(`data: ${JSON.stringify({ type: eventType, ...payload })}\n\n`);
   };
+
+  // get or initiate a conversation
+  let conversation;
+  try {
+    conversation = await getOrCreateConversation(req.user.id, conversationId);
+  } catch (err) {
+    console.log(err);
+    sendEvent("error", {
+      message: err.message || "Failed to get or create conversation."
+    });
+    res.end();
+    return;
+  }
+
+  // delete the messages from cache (latest message page)
+  try {
+    await deleteCache(`messages:${req.user.id}:${conversation.id}:first`);
+  } catch (err) {
+    console.log(err);
+    // non-critical, continue even if cache deletion fails
+  }
 
   try {
     // get embedding of question
@@ -297,16 +311,22 @@ export const getAnswersStream = async (req, res, next) => {
     }
 
     // check cache before streaming
-    // if cached — stream the cached answer token by token
     const pdfIds = [...new Set(results.map((r) => r.pdf_id))];
     const keySource = `${question}:${pdfIds.join()}:${req.user.id}`;
-    const cached = await getCache(keySource);
+
+    let cached;
+    try {
+      cached = await getCache(keySource);
+    } catch (err) {
+      console.log(err);
+      // non-critical, continue even if cache fetch fails
+    }
 
     if (cached && cached.answer) {
       // save user's message in DB
       await saveMessage(conversation.id, question, 'USER', 'SUCCESS')
 
-      // save assistant's message 
+      // save assistant's message
       await saveMessage(conversation.id, cached.answer, 'ASSISTANT', 'SUCCESS')
 
       // simulate streaming from cache — split by word and send
@@ -348,8 +368,8 @@ export const getAnswersStream = async (req, res, next) => {
         // save assistant's message in DB
         await saveMessage(conversation.id, fullAnswer, 'ASSISTANT', 'SUCCESS')
 
-        // get answer sources 
-       const sourcesMap = new Map();
+        // get answer sources
+        const sourcesMap = new Map();
 
         results.forEach(r => {
           if (!sourcesMap.has(r.pdf_id)) {
@@ -363,7 +383,12 @@ export const getAnswersStream = async (req, res, next) => {
         const sources = Array.from(sourcesMap.values());
 
         // save to cache
-        await setCache(keySource, { answer: fullAnswer, sources }, 600);
+        try {
+          await setCache(keySource, { answer: fullAnswer, sources }, 600);
+        } catch (err) {
+          console.log(err);
+          // non-critical, continue even if cache set fails
+        }
 
         // send final event with sources
         sendEvent("done", { conversationId: conversation.id, sources, isCached: false });
