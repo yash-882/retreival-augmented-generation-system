@@ -1,33 +1,14 @@
 import opError from "../utils/classes/opError.class.js";
 import { prismaClient as prisma } from "../server.js";
+import { parseMessageCursor } from "../utils/services/conversation.service.js";
 
 // get all messages for a specific conversation
 export const getMessages = async (req, res, next) => {
   const { conversationId } = req.params;
   let { last_msg_seq, last_msg_time } = req.query;
   
-  let lastMsgTime;
-
-  // get a Date format for prisma
-  if (!last_msg_time) {
-    lastMsgTime = new Date();
-  } else {
-    // the cursor should be a date (as String or Date)
-    const parsed = new Date(last_msg_time);
-
-    if (isNaN(parsed)) {
-      return next(new opError('Invalid cursor for getting messages.', 400));
-    }
-    lastMsgTime = parsed;
-  }
-
-  // check type of sequence number
-  if(last_msg_seq && isNaN(Number(last_msg_seq))){
-    return next(new opError('Invalid sequence number for getting messages.', 400));
-  }
-
-  // convert to number
-  const lastMsgSeq = Number(last_msg_seq);
+  // parses the cursors (type conversions), throws error if cursors are invalid
+  const { lastMsgTime, lastMsgSeq } = parseMessageCursor(last_msg_time, last_msg_seq);
 
   // find the conversation
   const conversation = await prisma.conversation.findFirst({
@@ -49,7 +30,7 @@ export const getMessages = async (req, res, next) => {
   };
 
   // if the last sent msg props are passed 
-  if (last_msg_time && last_msg_seq) {
+  if (lastMsgTime && lastMsgSeq) {
     whereClause.OR = [
       { created_at: { lt: lastMsgTime } },
 

@@ -35,3 +35,30 @@ export const saveMessage = async (conversationId, message, role, type) => {
     },
   });
 };
+
+// validate cursor for message pagination
+export const parseMessageCursor = (lastMsgTime, lastMsgSeq) => {
+
+    // get a Date format for prisma
+    if (!lastMsgTime) {
+      lastMsgTime = new Date();
+    } else {
+      // the cursor should be a date (as String or Date)
+      const parsed = new Date(lastMsgTime);
+  
+      if (isNaN(parsed)) {
+        return next(new opError('Invalid cursor for getting messages.', 400));
+      }
+      lastMsgTime = parsed;
+    }
+  
+    // check type of sequence number
+    if(lastMsgSeq && isNaN(Number(lastMsgSeq))){
+      return next(new opError('Invalid sequence number for getting messages.', 400));
+    }
+
+    return {
+      lastMsgTime,
+      lastMsgSeq: lastMsgSeq ? Number(lastMsgSeq) : null
+    }
+}
