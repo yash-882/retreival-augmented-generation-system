@@ -246,6 +246,9 @@ export const getAnswersStream = async (req, res, next) => {
   // get or intiate a conversation
   const conversation = await getOrCreateConversation(req.user.id, conversationId);
 
+  // delete the messages from cache (latest message page)
+  await deleteCache(`messages:${req.user.id}:${conversation.id}:first`);
+
   // helper to write an SSE event
   // SSE format is strictly: "data: <payload>\n\n"
   const sendEvent = (eventType, payload) => {

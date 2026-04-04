@@ -1,6 +1,7 @@
 import opError from "../utils/classes/opError.class.js";
 import { prismaClient as prisma } from "../server.js";
 import { parseMessageCursor } from "../utils/services/conversation.service.js";
+import { getCache, setCache } from "../utils/services/cache.service.js";
 
 // get all messages for a specific conversation
 export const getMessages = async (req, res, next) => {
@@ -10,6 +11,24 @@ export const getMessages = async (req, res, next) => {
   // parses the cursors (type conversions), throws error if cursors are invalid
   const { lastMsgTime, lastMsgSeq } = parseMessageCursor(last_msg_time, last_msg_seq);
 
+  // cache key 
+  const cacheKey = lastMsgSeq
+    ? `messages:${req.user.id}:${conversationId}:${lastMsgTime.toISOString()}:${lastMsgSeq}`
+    : `messages:${req.user.id}:${conversationId}:first`;
+
+    // check cache
+  const cachedMessages = await getCache(cacheKey);
+
+  if (cachedMessages) {    
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        cursor: null,
+        messages: cachedMessages,
+      },
+    });
+  }
+  
   // find the conversation
   const conversation = await prisma.conversation.findFirst({
     where: {
@@ -61,6 +80,10 @@ export const getMessages = async (req, res, next) => {
   const nextMsgCursor = messages.length > 0
     ? messages[messages.length - 1]
     : null;
+
+
+  // store to cache
+  await setCache(cacheKey, messages, 600);
 
   res.status(200).json({
     status: 'success',
