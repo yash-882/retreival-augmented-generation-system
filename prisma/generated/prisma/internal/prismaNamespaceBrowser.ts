@@ -118,6 +118,7 @@ export type ConversationScalarFieldEnum = (typeof ConversationScalarFieldEnum)[k
 
 export const MessageScalarFieldEnum = {
   id: 'id',
+  seq: 'seq',
   type: 'type',
   conversation_id: 'conversation_id',
   content: 'content',

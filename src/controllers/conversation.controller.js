@@ -4,8 +4,8 @@ import { prismaClient as prisma } from "../server.js";
 // get all messages for a specific conversation
 export const getMessages = async (req, res, next) => {
   const { conversationId } = req.params;
-  let { last_msg_id, last_msg_time } = req.query;
-
+  let { last_msg_seq, last_msg_time } = req.query;
+  
   let lastMsgTime;
 
   // get a Date format for prisma
@@ -21,6 +21,14 @@ export const getMessages = async (req, res, next) => {
     lastMsgTime = parsed;
   }
 
+  // check type of sequence number
+  if(last_msg_seq && isNaN(Number(last_msg_seq))){
+    return next(new opError('Invalid sequence number for getting messages.', 400));
+  }
+
+  // convert to number
+  const lastMsgSeq = Number(last_msg_seq);
+
   // find the conversation
   const conversation = await prisma.conversation.findFirst({
     where: {
@@ -30,7 +38,7 @@ export const getMessages = async (req, res, next) => {
   });
 
   if (!conversation) {
-    throw new opError('Conversation not found.', 404);
+    return next(new opError('Conversation not found.', 404));
   }
 
   // to fetch in limit
@@ -41,14 +49,14 @@ export const getMessages = async (req, res, next) => {
   };
 
   // if the last sent msg props are passed 
-  if (last_msg_time && last_msg_id) {
+  if (last_msg_time && last_msg_seq) {
     whereClause.OR = [
       { created_at: { lt: lastMsgTime } },
 
       // ensures we don't skip messages with the exact same Datetime
       {
         created_at: lastMsgTime,
-        id: { lt: last_msg_id }
+        seq: { lt: lastMsgSeq } // tiebreaker
       }
     ];
   } 
@@ -63,24 +71,24 @@ export const getMessages = async (req, res, next) => {
     where: whereClause,
     orderBy: [
       { created_at: 'desc' },
-      { id: 'desc' }
+      { seq: 'desc' }
     ],
     take: limit
   });
 
   // get last message details
-  const lastMsg = messages.length > 0
+  const nextMsgCursor = messages.length > 0
     ? messages[messages.length - 1]
     : null;
 
   res.status(200).json({
     status: 'success',
     data: {
-      // return the cursor of the last message sent by the client (used for pagination)
-      cursor: lastMsg
+    // cursor points to the last message in this batch, used for keyset pagination
+      cursor: nextMsgCursor
         ? {
-            created_at: lastMsg.created_at,
-            id: lastMsg.id
+            created_at: nextMsgCursor.created_at,
+            last_msg_seq: nextMsgCursor.seq
           }
         : null,
       messages,

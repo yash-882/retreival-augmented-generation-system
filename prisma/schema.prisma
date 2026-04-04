@@ -16,8 +16,8 @@ model pdf {
   user       user        @relation(fields: [user_id], references: [id], onDelete: Cascade)
   file_hash  String      @db.VarChar(100)
 
-  @@index([user_id])
-  @@index([id, user_id])
+  @@index([user_id]) // for querying user's all pdfs
+  @@index([id, user_id]) // for querying user's specific pdfs
 }
 
 model pdf_chunk {
@@ -29,7 +29,7 @@ model pdf_chunk {
   embedding   Unsupported("vector(768)") //embedding index applied with migration files
   user_id     String                     @db.Uuid
 
-  @@index([user_id])
+  @@index([user_id]) // for querying user's pdf's chunks
 }
 
 model user {
@@ -42,10 +42,10 @@ model user {
 }
 
 model conversation {
-  id String @id @default(uuid()) @db.Uuid
-  user_id String @db.Uuid
-  created_at DateTime @default(now()) 
-  messages message[]
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  created_at DateTime  @default(now())
+  messages   message[]
 }
 
 enum Role {
@@ -59,11 +59,15 @@ enum MessageType {
 }
 
 model message {
-  id String @id @default(uuid()) @db.Uuid
-  type MessageType @default(SUCCESS)
-  conversation_id String @db.Uuid
-  content String
-  conversation conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
-  role Role
-  created_at DateTime @default(now())
+  id              String       @id @default(uuid()) @db.Uuid
+  seq             Int          @default(autoincrement()) // helps as a tiebreaker for message queries
+  type            MessageType  @default(SUCCESS)
+  conversation_id String       @db.Uuid
+  content         String
+  conversation    conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  role            Role 
+  created_at      DateTime     @default(now())
+
+  @@index([conversation_id]) // for querying conversation's messages
+  @@index([created_at(sort: Desc), seq(sort: Desc)]) // for cursor based pagination on messages
 }
